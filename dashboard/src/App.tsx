@@ -1,23 +1,63 @@
-
 import { useMemo, useState } from "react";
 import "./App.css";
 import FindingRow from "./components/FindingRow";
 import FindingDetails from "./components/FindingDetails";
-import { findings } from "./data/findings";
-import type { Finding } from "./data/findings";
+import type { Finding, Severity } from "./data/findings";
+
+type ScanSummary = {
+  findings: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  commitsScanned: number;
+  filesScanned: number;
+};
+
+type ScanResponse = {
+  findings: Finding[];
+  summary: ScanSummary;
+  scannedAt: string;
+};
+
+const emptySummary: ScanSummary = {
+  findings: 0,
+  critical: 0,
+  high: 0,
+  medium: 0,
+  low: 0,
+  commitsScanned: 0,
+  filesScanned: 0,
+};
 
 function App() {
   const [selectedFinding, setSelectedFinding] =
     useState<Finding | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+
   const [severityFilter, setSeverityFilter] =
-    useState("All");
+    useState<"All" | Severity>("All");
+
+  const [currentFindings, setCurrentFindings] =
+    useState<Finding[]>([]);
+
+  const [summary, setSummary] =
+    useState<ScanSummary>(emptySummary);
+
+  const [scannedAt, setScannedAt] =
+    useState<string | null>(null);
+
+  const [isScanning, setIsScanning] =
+    useState(false);
+
+  const [scanError, setScanError] =
+    useState("");
 
   const filteredFindings = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
-    return findings.filter((finding) => {
+    return currentFindings.filter((finding) => {
       const matchesSearch =
         query === "" ||
         finding.type.toLowerCase().includes(query) ||
@@ -35,7 +75,11 @@ function App() {
 
       return matchesSearch && matchesSeverity;
     });
-  }, [searchQuery, severityFilter]);
+  }, [
+    currentFindings,
+    searchQuery,
+    severityFilter,
+  ]);
 
   const isFiltering =
     searchQuery.trim() !== "" ||
@@ -43,54 +87,83 @@ function App() {
 
   const displayedFindings = isFiltering
     ? filteredFindings
-    : findings.slice(0, 4);
+    : currentFindings.slice(0, 4);
+
+  const overallRisk = getOverallRisk(summary);
+
+  async function handleScan() {
+    setIsScanning(true);
+    setScanError("");
+
+    try {
+      const response = await fetch("/api/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            "The repository scan failed."
+        );
+      }
+
+      const result = data as ScanResponse;
+
+      setCurrentFindings(result.findings);
+      setSummary(result.summary);
+      setScannedAt(result.scannedAt);
+      setSelectedFinding(null);
+      setSearchQuery("");
+      setSeverityFilter("All");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to connect to the scanner.";
+
+      setScanError(
+        `${message} Make sure the SentinelGit API is running.`
+      );
+    } finally {
+      setIsScanning(false);
+    }
+  }
 
   return (
     <div className="app">
-      {/* Left navigation rail */}
       <aside className="sidebar">
         <div className="logo">🛡</div>
 
         <nav className="nav">
-          <button
-            className="nav-item active"
-            aria-label="Dashboard"
-          >
+          <button className="nav-item active" aria-label="Dashboard">
             ⌂
           </button>
 
-          <button
-            className="nav-item"
-            aria-label="Commits"
-          >
+          <button className="nav-item" aria-label="Commits">
             ◈
           </button>
 
-          <button
-            className="nav-item"
-            aria-label="Findings"
-          >
+          <button className="nav-item" aria-label="Findings">
             △
           </button>
 
-          <button
-            className="nav-item"
-            aria-label="Settings"
-          >
+          <button className="nav-item" aria-label="Settings">
             ⚙
           </button>
         </nav>
       </aside>
 
-      {/* Main dashboard */}
       <main className="main-content">
         <header className="header">
           <div>
             <h1>Hi, Aahana</h1>
-
-            <p>
-              Here’s your repository security overview.
-            </p>
+            <p>Here’s your repository security overview.</p>
           </div>
 
           <div className="header-actions">
@@ -117,7 +190,6 @@ function App() {
           </div>
         </header>
 
-        {/* Top dashboard section */}
         <section className="top-section">
           <div className="scan-card">
             <div className="card-header">
@@ -129,62 +201,133 @@ function App() {
                 <h2>Security overview</h2>
               </div>
 
-              <button className="period-button">
-                Weekly <span>⌄</span>
+              <button
+                className="period-button scan-button"
+                onClick={handleScan}
+                disabled={isScanning}
+              >
+                {isScanning
+                  ? "Scanning..."
+                  : "Scan repository"}
               </button>
             </div>
 
             <div className="scan-summary">
               <div>
-                <strong>3</strong>
+                <strong>{summary.critical}</strong>
                 <span>Critical</span>
               </div>
 
               <div className="scan-meta">
                 <span>Last scanned</span>
-                <strong>Today, 10:42 AM</strong>
+
+                <strong>
+                  {scannedAt
+                    ? formatScanDate(scannedAt)
+                    : "Not scanned yet"}
+                </strong>
               </div>
             </div>
 
             <div className="mini-chart">
-              <span style={{ height: "42%" }} />
-              <span style={{ height: "65%" }} />
-              <span style={{ height: "35%" }} />
-              <span style={{ height: "80%" }} />
-              <span style={{ height: "52%" }} />
-              <span style={{ height: "92%" }} />
-              <span style={{ height: "70%" }} />
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.low
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.medium
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.high
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.critical
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.findings
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.commitsScanned
+                  )}%`,
+                }}
+              />
+
+              <span
+                style={{
+                  height: `${getChartHeight(
+                    summary.filesScanned
+                  )}%`,
+                }}
+              />
             </div>
           </div>
 
-          {/* Stats */}
           <div className="stats-column">
             <div className="stat-tile amber">
-              <strong>6</strong>
+              <strong>{summary.findings}</strong>
               <span>Findings</span>
             </div>
 
             <div className="stat-tile lavender">
-              <strong>18</strong>
-              <span>Clean files</span>
+              <strong>{summary.filesScanned}</strong>
+              <span>Files scanned</span>
             </div>
 
             <div className="stat-tile pink">
-              <strong>7</strong>
+              <strong>{summary.commitsScanned}</strong>
               <span>Commits scanned</span>
             </div>
           </div>
         </section>
 
-        {/* Risk bar */}
+        {scanError && (
+          <div className="scan-error">
+            <strong>Scan failed</strong>
+            <span>{scanError}</span>
+          </div>
+        )}
+
         <section className="risk-section">
           <div className="section-heading">
             <span>Overall risk</span>
-            <strong>Medium</strong>
+            <strong>{overallRisk}</strong>
           </div>
 
           <div className="risk-bar">
-            <div className="risk-marker" />
+            <div
+              className="risk-marker"
+              style={{
+                left: `${getRiskPosition(
+                  overallRisk
+                )}%`,
+              }}
+            />
           </div>
 
           <div className="risk-labels">
@@ -195,23 +338,26 @@ function App() {
           </div>
         </section>
 
-        {/* Recent findings */}
         <section className="findings-section">
           <div className="section-heading findings-heading">
             <div>
               <span>Recent findings</span>
-
               <p>
                 Security issues detected in your repository
               </p>
             </div>
 
-            <button className="view-all">
+            <button
+              className="view-all"
+              onClick={() => {
+                setSearchQuery("");
+                setSeverityFilter("All");
+              }}
+            >
               View all
             </button>
           </div>
 
-          {/* Severity filters */}
           <div className="finding-controls">
             <div className="filter-label">
               Filter by severity:
@@ -237,7 +383,11 @@ function App() {
                         : "filter-button"
                     }
                     onClick={() =>
-                      setSeverityFilter(severity)
+                      setSeverityFilter(
+                        severity as
+                          | "All"
+                          | Severity
+                      )
                     }
                   >
                     {severity}
@@ -247,7 +397,6 @@ function App() {
             </div>
           </div>
 
-          {/* Search/filter result summary */}
           {isFiltering && (
             <div className="results-summary">
               <span>
@@ -270,7 +419,6 @@ function App() {
             </div>
           )}
 
-          {/* Findings */}
           <div className="finding-list">
             {displayedFindings.length > 0 ? (
               displayedFindings.map((finding) => (
@@ -288,7 +436,6 @@ function App() {
                       event.key === " "
                     ) {
                       event.preventDefault();
-
                       setSelectedFinding(finding);
                     }
                   }}
@@ -299,16 +446,19 @@ function App() {
             ) : (
               <div className="empty-state">
                 <div className="empty-icon">
-                  ⌕
+                  {isScanning ? "↻" : "⌕"}
                 </div>
 
                 <strong>
-                  No findings found
+                  {isScanning
+                    ? "Scanning repository..."
+                    : "No findings yet"}
                 </strong>
 
                 <span>
-                  Try a different search term or severity
-                  filter.
+                  {isScanning
+                    ? "SentinelGit is checking recent Git commits."
+                    : "Run a repository scan to load real security findings."}
                 </span>
               </div>
             )}
@@ -316,7 +466,6 @@ function App() {
         </section>
       </main>
 
-      {/* Right utility panel */}
       <aside className="utility-panel">
         <button
           className="close-button"
@@ -328,7 +477,11 @@ function App() {
         <h2>Action items</h2>
 
         <p>
-          You have 3 unresolved findings
+          You have{" "}
+          {getUnresolvedCount(summary)} unresolved finding
+          {getUnresolvedCount(summary) !== 1
+            ? "s"
+            : ""}
         </p>
 
         <div className="utility-card">
@@ -339,14 +492,12 @@ function App() {
 
         <div className="status-card">
           <strong>✓</strong>
-
           <span>
-            Next scan runs on push
+            Scanner connected to repository
           </span>
         </div>
       </aside>
 
-      {/* Finding details */}
       {selectedFinding && (
         <FindingDetails
           finding={selectedFinding}
@@ -359,5 +510,58 @@ function App() {
   );
 }
 
-export default App;
+function formatScanDate(date: string) {
+  return new Date(date).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
+function getChartHeight(value: number) {
+  if (value <= 0) return 18;
+
+  return Math.min(
+    95,
+    Math.max(25, value * 10)
+  );
+}
+
+function getOverallRisk(summary: ScanSummary) {
+  if (summary.critical > 0) return "Critical";
+  if (summary.high > 0) return "High";
+  if (summary.medium > 0) return "Medium";
+  if (summary.low > 0) return "Low";
+
+  return "Low";
+}
+
+function getRiskPosition(risk: string) {
+  switch (risk) {
+    case "Critical":
+      return 90;
+
+    case "High":
+      return 72;
+
+    case "Medium":
+      return 55;
+
+    default:
+      return 25;
+  }
+}
+
+function getUnresolvedCount(
+  summary: ScanSummary
+) {
+  return (
+    summary.critical +
+    summary.high +
+    summary.medium
+  );
+}
+
+export default App;
