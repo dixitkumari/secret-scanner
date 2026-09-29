@@ -1,0 +1,37 @@
+[
+  {
+    "type": "AWS_ACCESS_KEY",
+    "file": ".env",
+    "line": 4,
+    "value": "AKIA****************",
+    "context": "AWS_ACCESS_KEY_ID=AKIAABCDEFGHIJKLMNOP"
+  },
+  {
+    "type": "PRIVATE_KEY",
+    "file": "deploy/server.pem",
+    "line": 1,
+    "value": "-----BEGIN PRIVATE KEY-----",
+    "context": "-----BEGIN PRIVATE KEY-----"
+  },
+  {
+    "type": "AADHAAR",
+    "file": "aadhaar.csv",
+    "line": 2,
+    "value": "********9012",
+    "context": "customer_aadhaar,123456789012"
+  },
+  {
+    "type": "POSSIBLE_AADHAAR",
+    "file": "products.csv",
+    "line": 2,
+    "value": "********9012",
+    "context": "product_id,123456789012"
+  },
+  {
+    "type": "AWS_ACCESS_KEY",
+    "file": "README.md",
+    "line": 12,
+    "value": "AKIAEXAMPLE",
+    "context": "AWS_ACCESS_KEY_ID=AKIAEXAMPLE"
+  }
+]
