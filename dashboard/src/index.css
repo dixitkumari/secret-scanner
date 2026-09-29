@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  /* SentinelGit — Walnut + Cream */
+  --bg: #F6F5F3;
+  --surface: #FFFFFF;
+  --border: #ECEAE6;
+
+  --text: #292723;
+  --muted: #8A857E;
+  --neutral: #B8B3AC;
+
+  --primary: #6B3F2A;
+  --primary-dark: #4E2C1E;
+  --primary-light: #EADFD7;
+
+  /* Secondary pastel accents */
+  --amber: #F4D9A6;
+  --lavender: #DDD6F3;
+  --pink: #F2D2D8;
+
+  /* Security severity */
+  --critical: #6B3F2A;
+  --high: #C76B4A;
+  --medium: #D49A3A;
+  --low: #8A9A72;
+
+  /* Utility panel */
+  --utility: #DCE8D8;
+
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  color: var(--text);
+  background: var(--bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
