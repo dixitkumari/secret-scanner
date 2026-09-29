@@ -1,3 +1,4 @@
+
 import { useMemo, useState } from "react";
 import "./App.css";
 import FindingRow from "./components/FindingRow";
@@ -18,6 +19,7 @@ type ScanResponse = {
   findings: Finding[];
   summary: ScanSummary;
   scannedAt: string;
+  repository?: string;
 };
 
 const emptySummary: ScanSummary = {
@@ -52,6 +54,9 @@ function App() {
     useState(false);
 
   const [scanError, setScanError] =
+    useState("");
+
+  const [repoUrl, setRepoUrl] =
     useState("");
 
   const filteredFindings = useMemo(() => {
@@ -92,6 +97,13 @@ function App() {
   const overallRisk = getOverallRisk(summary);
 
   async function handleScan() {
+    if (!repoUrl.trim()) {
+      setScanError(
+        "Please enter a GitHub repository URL."
+      );
+      return;
+    }
+
     setIsScanning(true);
     setScanError("");
 
@@ -101,6 +113,9 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          repoUrl: repoUrl.trim(),
+        }),
       });
 
       const data = await response.json();
@@ -127,9 +142,7 @@ function App() {
           ? error.message
           : "Unable to connect to the scanner.";
 
-      setScanError(
-        `${message} Make sure the SentinelGit API is running.`
-      );
+      setScanError(message);
     } finally {
       setIsScanning(false);
     }
@@ -138,22 +151,34 @@ function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="logo">🛡</div>
+        <div className="logo">SG</div>
 
         <nav className="nav">
-          <button className="nav-item active" aria-label="Dashboard">
-            ⌂
+          <button
+            className="nav-item active"
+            aria-label="Dashboard"
+          >
+            ▦
           </button>
 
-          <button className="nav-item" aria-label="Commits">
+          <button
+            className="nav-item"
+            aria-label="Commits"
+          >
             ◈
           </button>
 
-          <button className="nav-item" aria-label="Findings">
+          <button
+            className="nav-item"
+            aria-label="Findings"
+          >
             △
           </button>
 
-          <button className="nav-item" aria-label="Settings">
+          <button
+            className="nav-item"
+            aria-label="Settings"
+          >
             ⚙
           </button>
         </nav>
@@ -162,8 +187,10 @@ function App() {
       <main className="main-content">
         <header className="header">
           <div>
-            <h1>Hi, Aahana</h1>
-            <p>Here’s your repository security overview.</p>
+            <h1>Welcome to SentinelGit</h1>
+            <p>
+              Repository security overview and vulnerability monitoring.
+            </p>
           </div>
 
           <div className="header-actions">
@@ -195,21 +222,41 @@ function App() {
             <div className="card-header">
               <div>
                 <span className="card-label">
-                  Latest scan
+                  Repository scan
                 </span>
 
                 <h2>Security overview</h2>
               </div>
 
-              <button
-                className="period-button scan-button"
-                onClick={handleScan}
-                disabled={isScanning}
-              >
-                {isScanning
-                  ? "Scanning..."
-                  : "Scan repository"}
-              </button>
+              <div className="repository-input">
+                <input
+                  type="url"
+                  value={repoUrl}
+                  onChange={(event) =>
+                    setRepoUrl(event.target.value)
+                  }
+                  placeholder="Paste GitHub repository URL"
+                  aria-label="GitHub repository URL"
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !isScanning
+                    ) {
+                      handleScan();
+                    }
+                  }}
+                />
+
+                <button
+                  className="period-button scan-button"
+                  onClick={handleScan}
+                  disabled={isScanning}
+                >
+                  {isScanning
+                    ? "Scanning..."
+                    : "Scan repository"}
+                </button>
+              </div>
             </div>
 
             <div className="scan-summary">
@@ -343,7 +390,7 @@ function App() {
             <div>
               <span>Recent findings</span>
               <p>
-                Security issues detected in your repository
+                Security issues detected in the scanned repository
               </p>
             </div>
 
@@ -458,7 +505,7 @@ function App() {
                 <span>
                   {isScanning
                     ? "SentinelGit is checking recent Git commits."
-                    : "Run a repository scan to load real security findings."}
+                    : "Enter a GitHub repository URL and run a scan to load security findings."}
                 </span>
               </div>
             )}
@@ -565,3 +612,4 @@ function getUnresolvedCount(
 }
 
 export default App;
+
