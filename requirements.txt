@@ -1,1 +1,3 @@
 GitPython
+google-genai
+python-dotenv
